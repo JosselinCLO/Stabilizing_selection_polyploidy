@@ -6,11 +6,13 @@
 Mutation<-function(haplotype, U, L, var.add.eff)
 {
   
-  Nb_mut<-rpois(1,U)
+  Nb_mut<-rpois(1,U) ## The number of mutations to be done 
   
-  position_mut<-c(sample(1:L, Nb_mut, replace = F))
+  position_mut<-c(sample(1:L, Nb_mut, replace = F)) ## The positions of the mutations on the haploid genome
   
   if(Nb_mut != 0){
+    
+    ## If you have at least 1 mutation, do the mutations
     
     for(i in 1:length(position_mut)){
       
@@ -29,35 +31,39 @@ Mutation<-function(haplotype, U, L, var.add.eff)
 Selection <-function(Npop, phenotype,om_2,opt)
 {
   
-  selected.parent = 0
-  list.parent = c(NULL)
+  selected.parent = 0 ## A counter to see how many parents have been selected
+  list.parent = c(NULL) ## A vector to store the the pedigree of parents
   
   repeat{
     
-    fit.max = max(exp(-((phenotype-opt)^2)/(2*om_2)))
+    fit.max = max(exp(-((phenotype-opt)^2)/(2*om_2))) ## Inferring the highest fitness value in the population at generation t
     
-    rand.repro1 = sample(1:Npop, 1)
+    rand.repro1 = sample(1:Npop, 1) ## Select one random individual
     
-    fit.samp = exp(-((phenotype[rand.repro1]-opt)^2)/(2*om_2))
+    fit.samp = exp(-((phenotype[rand.repro1]-opt)^2)/(2*om_2)) ## Inferring the fitness of the selected indidivual
     
     if( (fit.samp/fit.max) >= runif(1, 0, 1) ){
       
-      selected.parent = selected.parent + 1
+      ## Selection process, the ration of fit.samp/fit.max need to be higher than the runif number for the parent to be selected
       
-      list.parent[selected.parent]=rand.repro1
+      selected.parent = selected.parent + 1 ## Add one parent to the counter
       
-      # Selfing or outcrossing
+      list.parent[selected.parent]=rand.repro1 ## Add the coordinate of the parent to the list 
+      
+      # Outcrossing
       
       repeat{
         
-        rand.repro2 = sample(1:Npop, 1)
-        fit.samp = exp(-((phenotype[rand.repro2]-opt)^2)/(2*om_2))
+        rand.repro2 = sample(1:Npop, 1) ## Sample a second random individual
+        fit.samp = exp(-((phenotype[rand.repro2]-opt)^2)/(2*om_2))  ## Infer the fitness of the second random individual
         
         if( rand.repro1 != rand.repro2 && (fit.samp/fit.max) >= runif(1, 0, 1) ){
           
-          selected.parent = selected.parent + 1
+          ## If they are two different individuals and fitness is high enough, reproduction is allowed
           
-          list.parent[selected.parent]=rand.repro2
+          selected.parent = selected.parent + 1 ## Add +1 to the counter of selected parents
+          
+          list.parent[selected.parent]=rand.repro2 ## Store the identity of the parent
           
           break
         }
@@ -66,11 +72,11 @@ Selection <-function(Npop, phenotype,om_2,opt)
       
     }
     
-    if(selected.parent == 2*Npop) break
+    if(selected.parent == 2*Npop) break ## Break when you have enough parents
     
   }
   
-  return(list.parent)
+  return(list.parent) ## Return the list of selected parents
   
 }
 
@@ -81,23 +87,35 @@ Genome.offspring <-function(list.parent, L, Npop, U, genome, step, var.add.eff,g
   
   if(step == 0){
     
+    ## Step 0 is a fully diploid population
+    
     for(n in 1:Npop){
+      
+      ## Empty vectors for the haploid gametes of parents
       
       haplo.temp1 = c(NULL)
       haplo.temp2 = c(NULL)
       
       for(i in 1:L){
         
+        ## add_loc1 is the alleles of the first parent at a given loci and haplo.temp1 is sampling randomly one of the two alleles
+        
         add_loc1 = c(genome[2*list.parent[2*n], i], genome[2*list.parent[2*n] - 1, i])
         haplo.temp1[i] = sample(add_loc1, 1)
+        
+        ## the same for add_loc2
         
         add_loc2 = c(genome[2*list.parent[2*n - 1], i], genome[2*list.parent[2*n - 1] - 1, i])
         haplo.temp2[i] = sample(add_loc2, 1)
         
       }
       
+      ## Two haploid genomes from each parent in wich we are introducing mutations
+      
       haplo.temp.mut1 = Mutation(haplo.temp1, U, L, var.add.eff)  
       haplo.temp.mut2 = Mutation(haplo.temp2, U, L, var.add.eff)
+      
+      ## Building the new genome file with the genomes of the offsprings
       
       if(n == 1){genotype.off = haplo.temp.mut1
       
@@ -111,6 +129,8 @@ Genome.offspring <-function(list.parent, L, Npop, U, genome, step, var.add.eff,g
   }
   
   else{
+    
+    ## Just the same as before but for tetraploid individuals
     
     if(gen == 1){
       
@@ -200,9 +220,13 @@ Phenotype.offspring <-function(Genotype, Npop)
   
   pheno.off = c(NULL)
   
+  # An empty vector of phenotypic value
+  
   for(i in 1:Npop){
     
     pheno.off[i] = Genotype[i] + rnorm(1, 0, 1) # genotype + environmental effects
+    
+    # Adding an environmental effect to the genotypic value to have the phenotypic value
     
   }
   
@@ -216,9 +240,15 @@ genotype.offspring <-function(Genome, Npop, step, dosage){
   
   if(step == 0){
     
+    ## Step 0 is for a fully diploid population
+    
     geno.off = c(NULL)
     
+    ## An empty vector of genotypic values
+    
     for(i in 1:Npop){
+      
+      ## With additivity, genotype is just the sum of all values stored in the genome fill
       
       geno.off[i] = sum(Genome[2*i,]) + sum(Genome[(2*i) - 1,])
       
@@ -227,6 +257,8 @@ genotype.offspring <-function(Genome, Npop, step, dosage){
   }
   
   else{
+    
+    ## The same for a fully tetraploid population
     
     geno.off = c(NULL)
     
@@ -351,58 +383,72 @@ mean.all.effect<- function(genome){
 
 Simulation.programme <- function(Number.sim, L, var.add.eff, dosage, Npop, U, om_2){
   
-  Nsimul = 0
+  Nsimul = 0  ## Is counting the number of simulations performed per parameter set
   
   repeat{
     
-    Nsimul = Nsimul + 1  
+    Nsimul = Nsimul + 1  ## Add +1 to the count at each new simulation 
     
-    mean.fitness = c(NULL)
+    mean.fitness = c(NULL)  ## Vector to stock population fitness
     
-    opt = 0
+    opt = 0 ## The phenotypic optimum before the environmental change
     
-    om.2 = om_2
+    om.2 = om_2 ## The strength of stabilizing selection
     
     ### Initialisation
     
-    geno.init = c(rep(0, times=L))
+    geno.init = c(rep(0, times=L)) ## Generaiting the null haplotypes with only zero values at all loci
     
     for(i in 1:(2*Npop)){
+      
+      ## Npop is population size, and merge the null haplotypes to generation N individuals genetically similar at the beginning of simulations
       
       if(i == 1)(genome = geno.init)
       else{genome = rbind(genome, geno.init)}
       
     }
     
-    phenotype = c(rnorm(Npop, 0, 1))
+    phenotype = c(rnorm(Npop, 0, 1)) ## A first vector of phenotypic values (genotype = 0, and a random environmental effect with rnorm)
     
-    gen = 0
+    gen = 0 ## Initiating the counting of generations 
     
     repeat{
       
-      gen = gen + 1
+      gen = gen + 1 ## Adding one generation to the counter
       
-      fitness = exp(-(phenotype^2)/(2*om_2))
+      fitness = exp(-(phenotype^2)/(2*om_2)) ## Computing the fitness of individuals based on phenotype-fitness function
       
-      mean.fitness[gen] = mean(fitness)
+      mean.fitness[gen] = mean(fitness) ## Inferring the mean fitness value of the population at generation t
       
-      Parent.sel = Selection(Npop, phenotype, om_2,opt)
-      genome = Genome.offspring(Parent.sel, L, Npop, U, genome, step = 0, var.add.eff,gen)
-      genotype = genotype.offspring(genome, Npop, step = 0, dosage)
-      phenotype = Phenotype.offspring(genotype, Npop)
+      ## To understand the functions, have a look to the annotations in each function 
+      
+      ## To prepare the new generation we are making 1) Selection of the parents
+      ## 2) Generating the genome of offsprings
+      ## 3) Inferring the genotypes of offsprings
+      ## 4) Inferring the phenotypes of offsprings
+      
+      Parent.sel = Selection(Npop, phenotype, om_2,opt) # 1)
+      genome = Genome.offspring(Parent.sel, L, Npop, U, genome, step = 0, var.add.eff,gen) # 2)
+      genotype = genotype.offspring(genome, Npop, step = 0, dosage) # 3)
+      phenotype = Phenotype.offspring(genotype, Npop) # 4)
+      
+      ## Check if you have run enough generation
+      ## And check if we reached the equilibirum for genetic diversity
       
       if( is.wholenumber(gen/1000) == TRUE && (gen/1000) > 1 ){
         
-        mean.1<-mean(mean.fitness[(gen-999):gen])
-        mean.2<-mean(mean.fitness[(gen-1999):(gen-1000)])
+        mean.1<-mean(mean.fitness[(gen-999):gen]) ## Variance of the first 1000 generations
+        mean.2<-mean(mean.fitness[(gen-1999):(gen-1000)]) ## Variance of the second 1000 generations
         
-        if( abs(1 - (mean.1/mean.2)) <= 0.01){break}
+        if( abs(1 - (mean.1/mean.2)) <= 0.01){break} ## Have a look if it's deviate to much or not
         
       }
       
     }
     
     ## Step 2
+    
+    # We initiate the evolution of polyploidy
     
     gen = 0
     
@@ -487,7 +533,10 @@ Simulation.programme <- function(Number.sim, L, var.add.eff, dosage, Npop, U, om
     
     if(Nsimul == Number.sim) break
     
+    # If we did enough simulation, break the repaet function
   }
+  
+  # Write the results in the working directory as .txt files
   
   write.table(recap.fit, file=paste("fit_d",dosage,"_L",L,"_om",om_2,"_N",Npop,".txt",sep=""),row.names = F, dec = ".")
   
